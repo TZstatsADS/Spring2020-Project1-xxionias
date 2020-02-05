@@ -1,0 +1,185 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Basic Idea
+
+This project tries to analyze the car brands mentioned in lyrics.
+
+# Import Packages
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+```
+
+
+# Import Data
+
+```{r}
+load(file="../data/lyrics.RData")
+lrc <- dt_lyrics
+```
+
+# Data Cleaning
+
+```{r}
+# keep songs' year from 1968-2016
+lrc <- lrc%>%filter(year>=1968 & year <=2016)
+# remove duplicated rows
+lrc <- unique(lrc)
+# remove songs with no lyrics or too many lyrics
+lrc <- lrc%>%mutate(word_ct=str_count(lrc$lyrics, '\\w+'))
+wd_outliers = boxplot(lrc$word_ct, plot=FALSE)$out
+'%ni%' <- Negate('%in%')
+lrc <- lrc%>%filter(lrc$word_ct %ni% wd_outliers)
+```
+
+# Data Analysis
+
+Let's have a look at how many songs in each genre after data cleaning.
+```{r}
+lrc_genre <- lrc%>%group_by(genre)%>%summarise(genre_ct=n())%>%arrange(desc(genre_ct))
+lrc_genre
+```
+
+It turns out "Rock" has the most songs in this dataset.
+
+How many cars are mentioned in lyrics?
+```{r}
+# lexus
+lexus <- sum(grepl("\\lexus\\b", lrc$lyrics, ignore.case = TRUE))
+lexus
+
+# ferari
+ferari <- sum(grepl("rari", lrc$lyrics, ignore.case = TRUE)) + sum(grepl("ferari", lrc$lyrics, ignore.case = TRUE))
+ferari
+
+# bentley
+bentley <- sum(grepl("bentley", lrc$lyrics, ignore.case = TRUE))
+bentley
+
+# bmw
+bmw <- sum(grepl("bmw", lrc$lyrics, ignore.case = TRUE)) + sum(grepl("beamer", lrc$lyrics, ignore.case = TRUE)) + sum(grepl("bimmer", lrc$lyrics, ignore.case = TRUE)) 
+bmw
+
+# lamborghini
+lambo <- sum(grepl("lambo", lrc$lyrics, ignore.case = TRUE))
+lambo
+
+# maserati
+maserati <- sum(grepl("maserati", lrc$lyrics, ignore.case = TRUE))
+maserati
+
+# mcLaren
+mclaren <- sum(grepl("mclaren", lrc$lyrics, ignore.case = TRUE))
+mclaren
+
+# benz
+benz <- sum(grepl("\\benz\\b", lrc$lyrics, ignore.case = TRUE)) + sum(grepl("\\mercedes\\b", lrc$lyrics, ignore.case = TRUE)) +  sum(grepl("\\benzi\\b", lrc$lyrics, ignore.case = TRUE))
+benz
+
+# porsche
+porsche <- sum(grepl("porsche", lrc$lyrics, ignore.case = TRUE))
+porsche
+
+# amg
+amg <- sum(grepl("\\amg\\b", lrc$lyrics, ignore.case = TRUE))
+amg
+
+# cadillac
+caddy <- sum(grepl("cadillac", lrc$lyrics, ignore.case = TRUE)) + sum(grepl("caddy", lrc$lyrics, ignore.case = TRUE))
+caddy
+
+# ford
+ford <- sum(grepl("\\ford\\b", lrc$lyrics, ignore.case = TRUE))
+ford
+
+# honda
+honda <- sum(grepl("honda", lrc$lyrics, ignore.case = TRUE))
+honda
+
+#toyota
+toyota <- sum(grepl("toyota", lrc$lyrics, ignore.case = TRUE))
+toyota
+
+# nissan
+nissan <- sum(grepl("nissan", lrc$lyrics, ignore.case = TRUE))
+nissan
+
+# volvo
+volvo <- sum(grepl("volvo", lrc$lyrics, ignore.case = TRUE))
+volvo
+
+# chevrolet
+chevy <- sum(grepl("chevrolet", lrc$lyrics, ignore.case = TRUE)) + sum(grepl("chevy", lrc$lyrics, ignore.case = TRUE))
+
+# jeep
+jeep <- sum(grepl("jeep", lrc$lyrics, ignore.case = TRUE))
+jeep
+
+# buick
+buick <- sum(grepl("buick", lrc$lyrics, ignore.case = TRUE))
+buick
+
+# jaguar
+jaguar <- sum(grepl("jaguar", lrc$lyrics, ignore.case = TRUE))
+jaguar
+
+# land rover
+rover <- sum(grepl("\\rover\\b", lrc$lyrics, ignore.case = TRUE))
+rover
+
+# lexus
+audi <- sum(grepl("\\audi\\b", lrc$lyrics, ignore.case = TRUE)) + sum(grepl("\\audis\\b", lrc$lyrics, ignore.case = TRUE))
+audi
+
+# tesla
+tesla <- sum(grepl("tesla", lrc$lyrics, ignore.case = TRUE))
+tesla
+
+cars <- tibble('lexus'=lexus, 'ferari'=ferari, 'bentley'=bentley, 'bmw'=bmw, 'lambo'=lambo, 'maserati'=maserati, 'mclaren'=mclaren, 'benz'=benz, 'porsche'=porsche, 'amg'=amg, 'caddy'=caddy, 'ford'=ford, 'honda'=honda, 'toyota'=toyota, 'nissan'=nissan, 'volvo'=volvo, 'chevy'=chevy, 'jeep'=jeep, 'buick'=buick, 'jaguar'=jaguar, 'rover'=rover, 'audi'=audi, 'tesla'=tesla)
+cars <- cars%>%pivot_longer(everything(), names_to = "car brand", values_to = "count")%>%arrange(desc(count))
+cars <- cars%>%mutate(percentage=count/sum(count)*100)
+cars
+```
+
+It turns out "Cadillac" is the most mentioned car brand among all songs.
+
+So my next question is: What genre mentions cars most?
+It can be seen from the above tibble that top 4 car brands count for nearly 70% among all brands. 
+So I work on these four brands:
+```{r}
+# cadilac
+lrc_caddy <- lrc%>%mutate(caddy=(grepl("cadillac", lrc$lyrics, ignore.case = TRUE)) | grepl("caddy", lrc$lyrics, ignore.case = TRUE))%>%filter(caddy==TRUE)
+lrc_caddy <- lrc_caddy%>%group_by(genre)%>%summarise(caddy_count=n())%>%arrange(desc(caddy_count))
+lrc_car <- lrc_genre%>%left_join(lrc_caddy)%>%mutate(caddy_percentage=caddy_count/genre_ct*100)
+
+# chevrolet
+lrc_chevy <- lrc%>%mutate(chevy=(grepl("chevrolet", lrc$lyrics, ignore.case = TRUE)) | grepl("chevy", lrc$lyrics, ignore.case = TRUE))%>%filter(chevy==TRUE)
+lrc_chevy <- lrc_chevy%>%group_by(genre)%>%summarise(chevy_count=n())%>%arrange(desc(chevy_count))
+lrc_car <- lrc_car%>%left_join(lrc_chevy)%>%mutate(chevy_percentage=chevy_count/genre_ct*100)
+
+# ferari
+lrc_ferari <- lrc%>%mutate(ferari=(grepl("rari", lrc$lyrics, ignore.case = TRUE)) | grepl("ferari", lrc$lyrics, ignore.case = TRUE))%>%filter(ferari==TRUE)
+lrc_ferari <- lrc_ferari%>%group_by(genre)%>%summarise(ferari_count=n())%>%arrange(desc(ferari_count))
+lrc_car <- lrc_car%>%left_join(lrc_ferari)%>%mutate(ferari_percentage=ferari_count/genre_ct*100)
+
+# jeep
+lrc_jeep <- lrc%>%mutate(jeep=grepl("jeep", lrc$lyrics, ignore.case = TRUE))%>%filter(jeep==TRUE)
+lrc_jeep <- lrc_jeep%>%group_by(genre)%>%summarise(jeep_count=n())%>%arrange(desc(jeep_count))
+lrc_car <- lrc_car%>%left_join(lrc_jeep)%>%mutate(jeep_percentage=jeep_count/genre_ct*100)
+
+# Add up all the percentage w/i genre
+lrc_car <- lrc_car%>%select(genre, caddy_percentage, chevy_percentage, ferari_percentage, jeep_percentage)
+lrc_car <- lrc_car%>%mutate(sum=caddy_percentage+chevy_percentage+ferari_percentage+jeep_percentage)%>%arrange(desc(sum))
+lrc_car
+```
+
+# Conclusion
+It seems like "Other" genre has the most cars mentioned. But have a look at the singers: "a-boogie-wit-da-hoodie", "asap twelvyy", "g-herbo"... are rappers so their songs should belong to "Hip-Hop". Thus the conclusion would be "Hip-Hop" songs mention cars most in our dataset. And among all car brands, "Cadillac" is singers' favourite choice.
+
+
